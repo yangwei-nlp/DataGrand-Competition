@@ -1,3 +1,9 @@
 venv
 .idea
 *.pyc
+train_set.csv
+test_set.csv
+corpus.txt
+train.txt
+test.txt
+submit_sample.txt
