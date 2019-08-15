@@ -9,7 +9,7 @@ import os
 # 5 submit test
 
 # step 1 train data in
-with codecs.open('train.txt', 'r', encoding='utf-8') as f:
+with codecs.open('data/train.txt', 'r', encoding='utf-8') as f:
     lines = f.readlines()
     results = []
     for line in lines:
@@ -23,7 +23,7 @@ with codecs.open('train.txt', 'r', encoding='utf-8') as f:
             tags.extend(['O'] * len(sample_list)) if tag == 'o' else tags.extend(['B-' + tag] + ['I-' + tag] * (len(sample_list)-1))
         results.append(dict({'features': features, 'tags': tags}))
     train_write_list = []
-    with codecs.open('dg_train.txt', 'w', encoding='utf-8') as f_out:
+    with codecs.open('data/dg_train.txt', 'w', encoding='utf-8') as f_out:
         for result in results:
             for i in range(len(result['tags'])):
                 train_write_list.append(result['features'][i] + '\t' + result['tags'][i] + '\n')
@@ -31,7 +31,7 @@ with codecs.open('train.txt', 'r', encoding='utf-8') as f:
         f_out.writelines(train_write_list)
 
 # step 2 test data in
-with codecs.open('test.txt', 'r', encoding='utf-8') as f:
+with codecs.open('data/test.txt', 'r', encoding='utf-8') as f:
     lines = f.readlines()
     results = []
     for line in lines:
@@ -40,7 +40,7 @@ with codecs.open('test.txt', 'r', encoding='utf-8') as f:
         features.extend(sample_list)
         results.append(dict({'features': features}))
     test_write_list = []
-    with codecs.open('dg_test.txt', 'w', encoding='utf-8') as f_out:
+    with codecs.open('data/dg_test.txt', 'w', encoding='utf-8') as f_out:
         for result in results:
             for i in range(len(result['features'])):
                 test_write_list.append(result['features'][i] + '\n')
@@ -48,21 +48,21 @@ with codecs.open('test.txt', 'r', encoding='utf-8') as f:
         f_out.writelines(test_write_list)
 
 # 3 crf train
-crf_train = "crf_learn -f 3 template.txt dg_train.txt dg_model"
+crf_train = "crf_learn -f 3 data/template.txt data/dg_train.txt data/dg_model"
 os.system(crf_train)
 
 # 4 crf test
-crf_test = "crf_test -m dg_model dg_test.txt -o dg_result.txt"
+crf_test = "crf_test -m data/dg_model data/dg_test.txt -o data/dg_result.txt"
 os.system(crf_test)
 
 # 5 submit data
-f_write = codecs.open('dg_submit.txt', 'w', encoding='utf-8') 
-with codecs.open('dg_result.txt', 'r', encoding='utf-8') as f:
-    lines = f.read().split('\n\n')
+f_write = codecs.open('data/dg_submit.txt', 'w', encoding='utf-8') 
+with codecs.open('data/dg_result.txt', 'r', encoding='utf-8') as f:
+    lines = f.read().split('\r\n\r\n')
     for line in lines:
         if line == '':
             continue
-        tokens = line.split('\n')
+        tokens = line.split('\r\n')
         features = []
         tags = []
         for token in tokens:

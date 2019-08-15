@@ -7,3 +7,5 @@ corpus.txt
 train.txt
 test.txt
 submit_sample.txt
+.exe
+.dll
