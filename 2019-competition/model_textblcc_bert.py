@@ -1,5 +1,6 @@
 #coding:utf-8
 # seq2seq bilstm+cnn+crf
+# keras关于bilstm+crf的实现，虽然为序列标注任务，但是不是ner，所以可以借鉴
 import numpy as np
 import pandas as pd
 from keras.layers import *
