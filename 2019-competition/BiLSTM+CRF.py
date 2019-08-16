@@ -35,18 +35,18 @@ class BiLSTM_CRF(nn.Module):
 
     def __init__(self, vocab_size, tag_to_ix, embedding_dim, hidden_dim):
         super(BiLSTM_CRF, self).__init__()
-        self.embedding_dim = embedding_dim
-        self.hidden_dim = hidden_dim
+        self.embedding_dim = embedding_dim  # 5
+        self.hidden_dim = hidden_dim  # 4
         self.vocab_size = vocab_size
         self.tag_to_ix = tag_to_ix
-        self.tagset_size = len(tag_to_ix)
+        self.tagset_size = len(tag_to_ix)  # 5
 
         self.word_embeds = nn.Embedding(vocab_size, embedding_dim)
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim // 2,
+        self.lstm = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_dim // 2,
                             num_layers=1, bidirectional=True)
 
         # Maps the output of the LSTM into tag space.
-        self.hidden2tag = nn.Linear(hidden_dim, self.tagset_size)
+        self.hidden2tag = nn.Linear(in_features=hidden_dim, out_features=self.tagset_size)
 
         # Matrix of transition parameters.  Entry i,j is the score of
         # transitioning *to* i *from* j.
@@ -61,6 +61,7 @@ class BiLSTM_CRF(nn.Module):
         self.hidden = self.init_hidden()
 
     def init_hidden(self):
+        # 隐藏层的初始化参数
         return (torch.randn(2, 1, self.hidden_dim // 2),
                 torch.randn(2, 1, self.hidden_dim // 2))
 
@@ -96,11 +97,15 @@ class BiLSTM_CRF(nn.Module):
         return alpha
 
     def _get_lstm_features(self, sentence):
-        self.hidden = self.init_hidden()
+        self.hidden = self.init_hidden()  # 参数的格式(tensor shape(2,1,2), tensor shape(2,1,2))
+        # print(self.word_embeds(sentence).shape)  # 词嵌入后得到矩阵shape,(11, 5)
         embeds = self.word_embeds(sentence).view(len(sentence), 1, -1)
+        # print(embeds.shape)  # (11, 1, 5)
         lstm_out, self.hidden = self.lstm(embeds, self.hidden)
+        # print(lstm_out.shape, len(self.hidden))  # (11,1,4)和2
         lstm_out = lstm_out.view(len(sentence), self.hidden_dim)
-        lstm_feats = self.hidden2tag(lstm_out)
+        lstm_feats = self.hidden2tag(lstm_out)  # 可以视为lstm对句子每个单词的标注
+        # print(lstm_feats.shape)  # (11,5)
         return lstm_feats
 
     def _score_sentence(self, feats, tags):
@@ -165,7 +170,8 @@ class BiLSTM_CRF(nn.Module):
 
     def forward(self, sentence):  # dont confuse this with _forward_alg above.
         # Get the emission scores from the BiLSTM
-        lstm_feats = self._get_lstm_features(sentence)
+        # sentence: (11,)
+        lstm_feats = self._get_lstm_features(sentence)  # (11,5)
 
         # Find the best path, given the features.
         score, tag_seq = self._viterbi_decode(lstm_feats)
@@ -174,8 +180,8 @@ class BiLSTM_CRF(nn.Module):
 
 START_TAG = "<START>"
 STOP_TAG = "<STOP>"
-EMBEDDING_DIM = 5
-HIDDEN_DIM = 4
+EMBEDDING_DIM = 128
+HIDDEN_DIM = 64
 
 # Make up some training data
 training_data = [(
