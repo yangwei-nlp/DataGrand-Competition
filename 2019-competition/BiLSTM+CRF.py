@@ -222,11 +222,13 @@ optimizer = optim.SGD(model.parameters(), lr=0.01, weight_decay=1e-4)
 #     print("init model: ", model(precheck_sent))
 
 # Make sure prepare_sequence from earlier in the LSTM section is loaded
-for epoch in range(10):
+for epoch in range(1):
     print("epoch :{}".format(epoch+1))
-    for sentence, tags in training_data:
+    for i, (sentence, tags) in enumerate(training_data):
         # Step 1. Remember that Pytorch accumulates gradients.
         # We need to clear them out before each instance
+        if i % 10000 == 0:
+            print("第 {} 个样本".format(i))
         model.zero_grad()
 
         # Step 2. Get our inputs ready for the network, that is,
