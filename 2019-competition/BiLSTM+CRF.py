@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 Description :   
      Author :   Yang
@@ -9,6 +7,7 @@ import torch
 import torch.autograd as autograd
 import torch.nn as nn
 import torch.optim as optim
+import codecs
 
 torch.manual_seed(1)
 
@@ -31,6 +30,7 @@ def log_sum_exp(vec):
         torch.log(torch.sum(torch.exp(vec - max_score_broadcast)))
 
 
+# 构造模型
 class BiLSTM_CRF(nn.Module):
 
     def __init__(self, vocab_size, tag_to_ix, embedding_dim, hidden_dim):
@@ -99,9 +99,10 @@ class BiLSTM_CRF(nn.Module):
     def _get_lstm_features(self, sentence):
         self.hidden = self.init_hidden()  # 参数的格式(tensor shape(2,1,2), tensor shape(2,1,2))
         # print(self.word_embeds(sentence).shape)  # 词嵌入后得到矩阵shape,(11, 5)
+        test = self.word_embeds(sentence)  # 报错
         embeds = self.word_embeds(sentence).view(len(sentence), 1, -1)
         # print(embeds.shape)  # (11, 1, 5)
-        lstm_out, self.hidden = self.lstm(embeds, self.hidden)
+        lstm_out, self.hidden = self.lstm(embeds, self.hidden)  # nn.LSTM的背后原理有待研究
         # print(lstm_out.shape, len(self.hidden))  # (11,1,4)和2
         lstm_out = lstm_out.view(len(sentence), self.hidden_dim)
         lstm_feats = self.hidden2tag(lstm_out)  # 可以视为lstm对句子每个单词的标注
@@ -178,40 +179,51 @@ class BiLSTM_CRF(nn.Module):
         return score, tag_seq
 
 
+
+# 准备训练
 START_TAG = "<START>"
 STOP_TAG = "<STOP>"
 EMBEDDING_DIM = 128
 HIDDEN_DIM = 64
 
-# Make up some training data
-training_data = [(
-    "the wall street journal reported today that apple corporation made money".split(),
-    "B I I I O O O B I O O".split()
-), (
-    "georgia tech is a university in georgia".split(),
-    "B I O O O O B".split()
-)]
+training_data = []
+word_to_ix = {}  # 词语-索引映射
+tag_to_ix = {START_TAG: 0, STOP_TAG: 1}  # 标注集
+with codecs.open('data/dg_train.txt', 'r', encoding='utf-8') as f:
+    # f = codecs.open('data/dg_train.txt', 'r', encoding='utf-8')
+    line = f.readline()
+    features = []  # 每句话的所有词
+    tags = []  # 每句话中每个词的标注
+    while line:
+        if line == '\n':
+            training_data.append((features, tags))
+            features = []
+            tags = []
+        else:
+            word = line.split('\n')[0].split('\t')[0]
+            tag = line.split('\n')[0].split('\t')[1]
+            if word not in word_to_ix:
+                word_to_ix[word] = len(word_to_ix)
+            if tag not in tag_to_ix:
+                tag_to_ix[tag] = len(tag_to_ix)
+            features.append(word)
+            tags.append(tag)
+        line = f.readline()
 
-word_to_ix = {}
-for sentence, tags in training_data:
-    for word in sentence:
-        if word not in word_to_ix:
-            word_to_ix[word] = len(word_to_ix)
-
-tag_to_ix = {"B": 0, "I": 1, "O": 2, START_TAG: 3, STOP_TAG: 4}
 
 model = BiLSTM_CRF(len(word_to_ix), tag_to_ix, EMBEDDING_DIM, HIDDEN_DIM)
 optimizer = optim.SGD(model.parameters(), lr=0.01, weight_decay=1e-4)
 
 # Check predictions before training
-with torch.no_grad():
-    precheck_sent = prepare_sequence(training_data[0][0], word_to_ix)
-    precheck_tags = torch.tensor([tag_to_ix[t] for t in training_data[0][1]], dtype=torch.long)
-    print(model(precheck_sent))
+# with torch.no_grad():
+#     precheck_sent = prepare_sequence(training_data[0][0], word_to_ix)
+#     precheck_tags = torch.tensor([tag_to_ix[t] for t in training_data[0][1]], dtype=torch.long)
+#     print("true tag: ", precheck_tags)
+#     print("init model: ", model(precheck_sent))
 
 # Make sure prepare_sequence from earlier in the LSTM section is loaded
-for epoch in range(
-        300):  # again, normally you would NOT do 300 epochs, it is toy data
+for epoch in range(10):
+    print("epoch :{}".format(epoch+1))
     for sentence, tags in training_data:
         # Step 1. Remember that Pytorch accumulates gradients.
         # We need to clear them out before each instance
@@ -233,5 +245,5 @@ for epoch in range(
 # Check predictions after training
 with torch.no_grad():
     precheck_sent = prepare_sequence(training_data[0][0], word_to_ix)
-    print(model(precheck_sent))
+    print("trained model: ", model(precheck_sent))
 # We got it!

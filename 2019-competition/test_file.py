@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
-Description :   
+Description :   将预处理后的数据集变换为BiLSTM+CRF模型需要的输入格式
      Author :   Yang
        Date :   2019/8/16
 """
