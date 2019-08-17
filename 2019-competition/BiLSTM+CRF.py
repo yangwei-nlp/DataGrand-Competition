@@ -3,13 +3,18 @@ Description :
      Author :   Yang
        Date :   2019/8/15
 """
+import numpy as np
+import pandas as pd
 import torch
 import torch.autograd as autograd
 import torch.nn as nn
 import torch.optim as optim
 import codecs
+from torch.utils.data import Dataset, DataLoader
+from sklearn.model_selection import train_test_split
 
 torch.manual_seed(1)
+
 
 def argmax(vec):
     # return the argmax as a python int
@@ -27,12 +32,11 @@ def log_sum_exp(vec):
     max_score = vec[0, argmax(vec)]
     max_score_broadcast = max_score.view(1, -1).expand(1, vec.size()[1])
     return max_score + \
-        torch.log(torch.sum(torch.exp(vec - max_score_broadcast)))
+           torch.log(torch.sum(torch.exp(vec - max_score_broadcast)))
 
 
 # 构造模型
 class BiLSTM_CRF(nn.Module):
-
     def __init__(self, vocab_size, tag_to_ix, embedding_dim, hidden_dim):
         super(BiLSTM_CRF, self).__init__()
         self.embedding_dim = embedding_dim  # 5
@@ -115,7 +119,7 @@ class BiLSTM_CRF(nn.Module):
         tags = torch.cat([torch.tensor([self.tag_to_ix[START_TAG]], dtype=torch.long), tags])
         for i, feat in enumerate(feats):
             score = score + \
-                self.transitions[tags[i + 1], tags[i]] + feat[tags[i + 1]]
+                    self.transitions[tags[i + 1], tags[i]] + feat[tags[i + 1]]
         score = score + self.transitions[self.tag_to_ix[STOP_TAG], tags[-1]]
         return score
 
@@ -179,14 +183,31 @@ class BiLSTM_CRF(nn.Module):
         return score, tag_seq
 
 
+class Data(Dataset):
+    def __init__(self, Xtrain, ytrain, word_to_ix, tag_to_ix):
+        self.word_to_ix = word_to_ix
+        self.tag_to_ix = tag_to_ix
+        self.Xtrain = Xtrain
+        self.ytrain = ytrain
 
-# 准备训练
-START_TAG = "<START>"
-STOP_TAG = "<STOP>"
+    def __len__(self):
+        return len(self.Xtrain)
+
+    def __getitem__(self, idx):
+        sentence = prepare_sequence(self.Xtrain[idx], self.word_to_ix)
+        tags = torch.tensor([self.tag_to_ix[t] for t in self.ytrain[idx]], dtype=torch.long)
+        return tags, sentence
+
+
+# 准备数据
 EMBEDDING_DIM = 128
 HIDDEN_DIM = 64
 
-training_data = []
+STOP_TAG = "<STOP>"
+START_TAG = "<START>"
+
+X = []  # 所有样本，每个元素代表一个样本(一句话)的特征
+y = []  # 每个元素代表一个样本的所有的标注
 word_to_ix = {}  # 词语-索引映射
 tag_to_ix = {START_TAG: 0, STOP_TAG: 1}  # 标注集
 with codecs.open('data/dg_train.txt', 'r', encoding='utf-8') as f:
@@ -196,7 +217,8 @@ with codecs.open('data/dg_train.txt', 'r', encoding='utf-8') as f:
     tags = []  # 每句话中每个词的标注
     while line:
         if line == '\n':
-            training_data.append((features, tags))
+            X.append(features)
+            y.append(tags)
             features = []
             tags = []
         else:
@@ -210,42 +232,34 @@ with codecs.open('data/dg_train.txt', 'r', encoding='utf-8') as f:
             tags.append(tag)
         line = f.readline()
 
+Xtrain, Xtest, ytrain, ytest = train_test_split(X, y, test_size=0.2, random_state=42)
+
+
+def MyDataLoader(Xtrain, ytrain, word_to_ix, tag_to_ix, batch_size):
+    dataset = Data(Xtrain, ytrain, word_to_ix, tag_to_ix)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+
+data_loader = MyDataLoader(Xtrain, ytrain, word_to_ix, tag_to_ix, 200)
 
 model = BiLSTM_CRF(len(word_to_ix), tag_to_ix, EMBEDDING_DIM, HIDDEN_DIM)
 optimizer = optim.SGD(model.parameters(), lr=0.01, weight_decay=1e-4)
 
-# Check predictions before training
-# with torch.no_grad():
-#     precheck_sent = prepare_sequence(training_data[0][0], word_to_ix)
-#     precheck_tags = torch.tensor([tag_to_ix[t] for t in training_data[0][1]], dtype=torch.long)
-#     print("true tag: ", precheck_tags)
-#     print("init model: ", model(precheck_sent))
-
 # Make sure prepare_sequence from earlier in the LSTM section is loaded
 for epoch in range(1):
-    print("epoch :{}".format(epoch+1))
-    for i, (sentence, tags) in enumerate(training_data):
+    print("epoch :{}".format(epoch + 1))
+    # for i, (sentence, tags) in enumerate(sample_data):
+    for i, (tags, sentence) in enumerate(data_loader):
         # Step 1. Remember that Pytorch accumulates gradients.
         # We need to clear them out before each instance
-        if i % 10000 == 0:
+        if i % 1000 == 0:
             print("第 {} 个样本".format(i))
         model.zero_grad()
 
-        # Step 2. Get our inputs ready for the network, that is,
-        # turn them into Tensors of word indices.
-        sentence_in = prepare_sequence(sentence, word_to_ix)
-        targets = torch.tensor([tag_to_ix[t] for t in tags], dtype=torch.long)
+        # Step 2. Run our forward pass.
+        loss = model.neg_log_likelihood(sentence, tags)
 
-        # Step 3. Run our forward pass.
-        loss = model.neg_log_likelihood(sentence_in, targets)
-
-        # Step 4. Compute the loss, gradients, and update the parameters by
+        # Step 3. Compute the loss, gradients, and update the parameters by
         # calling optimizer.step()
         loss.backward()
         optimizer.step()
-
-# Check predictions after training
-with torch.no_grad():
-    precheck_sent = prepare_sequence(training_data[0][0], word_to_ix)
-    print("trained model: ", model(precheck_sent))
-# We got it!
