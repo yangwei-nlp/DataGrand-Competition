@@ -212,8 +212,8 @@ START_TAG = "<START>"
 
 X = []  # 所有样本，每个元素代表一个样本(一句话)的特征
 y = []  # 每个元素代表一个样本的所有的标注
-word_to_ix = {}  # 词语-索引映射
-tag_to_ix = {START_TAG: 0, STOP_TAG: 1}  # 标注集
+word_to_ix = {'PADDING': 0}  # 词语-索引映射
+tag_to_ix = {STOP_TAG: 0, START_TAG: 1}  # 标注集
 with codecs.open('data/dg_train.txt', 'r', encoding='utf-8') as f:
     # f = codecs.open('data/dg_train.txt', 'r', encoding='utf-8')
     line = f.readline()
@@ -239,13 +239,41 @@ with codecs.open('data/dg_train.txt', 'r', encoding='utf-8') as f:
 Xtrain, Xtest, ytrain, ytest = train_test_split(X, y, test_size=0.2, random_state=42)
 
 
-# def my_collate(batch):
+def pad_tensor(vec, pad):
+    """
+    args:
+        vec - tensor to pad
+        pad - the size to pad to
 
+    return:
+        a new tensor padded to 'pad'
+    """
+    return torch.cat([vec, torch.zeros(pad - len(vec), dtype=torch.int64)], dim=0).data.numpy()
+
+
+# def pad_y(vec, pad):
+#     return torch.cat([vec, torch.zeros(pad - len(vec), dtype=torch.int64)], dim=0).data.numpy()
+
+
+def my_collate(batch):
+    xs = [torch.tensor(v[0]) for v in batch]
+    ys = [torch.tensor(v[1]) for v in batch]
+    # 获得每个样本的序列长度
+    seq_lengths = torch.tensor([v for v in map(len, xs)])
+    max_len = max([len(v) for v in xs])
+    # 每个样本都padding到当前batch的最大长度
+    xs = torch.tensor([pad_tensor(v, max_len) for v in xs])
+    ys = torch.tensor([pad_tensor(v, max_len) for v in ys])
+    # 把xs和ys按照序列长度从大到小排序
+    seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
+    xs = xs[perm_idx]
+    ys = ys[perm_idx]
+    return xs, seq_lengths, ys
 
 
 def MyDataLoader(Xtrain, ytrain, word_to_ix, tag_to_ix, batch_size):
     dataset = Data(Xtrain, ytrain, word_to_ix, tag_to_ix)
-    return DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=my_collate)
 
 
 data_loader = MyDataLoader(Xtrain, ytrain, word_to_ix, tag_to_ix, 200)
@@ -260,17 +288,21 @@ optimizer = optim.SGD(model.parameters(), lr=0.01, weight_decay=1e-4)
 for epoch in range(1):
     print("epoch :{}".format(epoch + 1))
     # for i, (sentence, tags) in enumerate(sample_data):
-    for i, (tags, sentence) in enumerate(data_loader):
+    # for i, (tags, sentence) in enumerate(data_loader):
+    for i, elem in enumerate(data_loader):
+        print(elem)
+        # print(len(elem))
+
         # Step 1. Remember that Pytorch accumulates gradients.
         # We need to clear them out before each instance
-        if i % 1000 == 0:
-            print("第 {} 个样本".format(i))
-        model.zero_grad()
-
-        # Step 2. Run our forward pass.
-        loss = model.neg_log_likelihood(sentence, tags)
-
-        # Step 3. Compute the loss, gradients, and update the parameters by
-        # calling optimizer.step()
-        loss.backward()
-        optimizer.step()
+        # if i % 1000 == 0:
+        #     print("第 {} 个样本".format(i))
+        # model.zero_grad()
+        #
+        # # Step 2. Run our forward pass.
+        # loss = model.neg_log_likelihood(sentence, tags)
+        #
+        # # Step 3. Compute the loss, gradients, and update the parameters by
+        # # calling optimizer.step()
+        # loss.backward()
+        # optimizer.step()

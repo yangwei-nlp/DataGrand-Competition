@@ -24,14 +24,34 @@ loader = Data.DataLoader(
     batch_size=batch,  # 批大小
     # 若dataset中的样本数不能被batch_size整除的话，最后剩余多少就使用多少
     # collate_fn=lambda x: x
-    collate_fn=my_collate
+    collate_fn=lambda x: x
 )
 
-# lambda x:(
-#         torch.cat(
-#             [x[i][j].unsqueeze(0) for i in range(len(x))], 0
-#             ).unsqueeze(0) for j in range(len(x[0]))
-#         )
+def pad_tensor(vec, pad):
+    """
+    args:
+        vec - tensor to pad
+        pad - the size to pad to
+
+    return:
+        a new tensor padded to 'pad'
+    """
+    return torch.cat([vec, torch.zeros(pad - len(vec), dtype=torch.float)], dim=0).data.numpy()
+
+
+def my_collate(batch):
+    xs = [torch.tensor(v[0]) for v in batch]
+    ys = torch.tensor([v[1] for v in batch])
+    # 获得每个样本的序列长度
+    seq_lengths = torch.tensor([v for v in map(len, xs)])
+    max_len = max([len(v) for v in xs])
+    # 每个样本都padding到当前batch的最大长度
+    xs = torch.tensor([pad_tensor(v, max_len) for v in xs])
+    # 把xs和ys按照序列长度从大到小排序
+    seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
+    xs = xs[perm_idx]
+    ys = ys[perm_idx]
+    return xs, seq_lengths, ys
 
 for i, j in loader:
     print(i)
@@ -39,7 +59,8 @@ for i, j in loader:
 
 
 for elem in loader:
-    # print(len(elem[0]))
-    # print(elem)
-    for i, j in elem:
-        print(i, j)
+    # print(len(elem))
+    print(elem)
+    # print(type(elem))
+    # for i, j in elem:
+    #     print(i, j)
