@@ -1,16 +1,29 @@
+from gensim.test.utils import common_texts, get_tmpfile
+import tensorflow.keras.preprocessing.text as T
+from multiprocessing import cpu_count
+from gensim.models import Word2Vec
+from tensorflow import keras
 import pandas as pd
 import numpy as np
+import swifter
+import os
 
-train_set = pd.read_csv('data/train_set.csv', index_col=0)
-print(train_set)
-train_set.shape
-train_set.iloc[0,]
-train_set.columns
-np.unique(train_set['class'])  # 19个类别
+os.chdir(r'D:\..courses\DataGrand-Competition\2018-competition')
 
-train_set['word_seg']
+modelpath = "word2vec.model"
 
+# 1.获得词向量
+if os.path.exists(modelpath):
+    train_set = pd.read_csv('data/train_set.csv', index_col=0)
+    corpus = train_set['word_seg'].swifter.apply(lambda line: line.split())
+    tokenizer = T.Tokenizer(num_words=200000, lower=False, filters="")
+    [tokenizer.fit_on_texts(sentence) for sentence in corpus]
+    print(tokenizer.index_word)
 
-temp = train_set['word_seg'].map(lambda sentence: sentence.split())
-sentences = [[int(word) for word in sent] for sent in temp.to_list()]
-# memory error
+    model = Word2Vec(corpus.values.tolist(), size=200, window=5, min_count=1,
+                     iter=10, workers=cpu_count(), max_vocab_size=200000)
+    model.save(modelpath)
+else:
+    Word2Vec.load(modelpath)
+
+# model.wv.vectors
