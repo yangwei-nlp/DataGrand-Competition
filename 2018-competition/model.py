@@ -8,12 +8,12 @@ import numpy as np
 import swifter
 import os
 
-os.chdir(r'D:\..courses\DataGrand-Competition\2018-competition')
+#os.chdir(r'D:\..courses\DataGrand-Competition\2018-competition')
 
 modelpath = "word2vec.model"
 
 # 1.获得词向量
-if os.path.exists(modelpath):
+if not os.path.exists(modelpath):
     train_set = pd.read_csv('data/train_set.csv', index_col=0)
     corpus = train_set['word_seg'].swifter.apply(lambda line: line.split())
     tokenizer = T.Tokenizer(num_words=200000, lower=False, filters="")
