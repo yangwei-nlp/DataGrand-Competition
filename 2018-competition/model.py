@@ -79,14 +79,14 @@ for i, word in tokenizer.index_word.items():
         embedding_matrix[i] = unk_vec
 
 trains = keras.preprocessing.sequence.pad_sequences(
-    tokenizer.texts_to_sequences(train_set['word_seg'].values-1), maxlen=512
+    tokenizer.texts_to_sequences(train_set['word_seg'].values), maxlen=512
 )
 
 tests = keras.preprocessing.sequence.pad_sequences(
-    tokenizer.texts_to_sequences(test_set['word_seg'].values-1), maxlen=512
+    tokenizer.texts_to_sequences(test_set['word_seg'].values), maxlen=512
 )
 
-trainings = tf.data.Dataset.from_tensor_slices((trains, train_set['class']))
+trainings = tf.data.Dataset.from_tensor_slices((trains, train_set['class']-1))
 # trainings = trainings.repeat(10)
 trainings = trainings.batch(128)
 
