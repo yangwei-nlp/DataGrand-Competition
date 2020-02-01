@@ -86,7 +86,7 @@ tests = keras.preprocessing.sequence.pad_sequences(
 
 trainings = tf.data.Dataset.from_tensor_slices((trains, train_set['class']))
 # trainings = trainings.repeat(10)
-# trainings = trainings.batch(128)
+trainings = trainings.batch(128)
 
 # for X, Y in trainings:
 #     print(X.shape)
@@ -100,4 +100,4 @@ callbacks = tf.keras.callbacks.ModelCheckpoint(checkpoint_dir,
 
 model = my_model(512, embedding_matrix)
 
-model.fit(trainings, batch_size=128, epochs=1, callbacks=callbacks)
+model.fit(trainings, batch_size=128, epochs=1, callbacks=[callbacks])
