@@ -51,8 +51,10 @@ def my_model(max_len, embedding_matrix):
     x = keras.layers.Activation(activation="relu")(keras.layers.BatchNormalization()(keras.layers.Dense(500)(x)))
     output = keras.layers.Dense(19, activation="softmax")(x)
 
+    loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+
     model = keras.models.Model(inputs=content, outputs=output)
-    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss=loss_object, optimizer='adam', metrics=['accuracy'])
     return model
 
 
