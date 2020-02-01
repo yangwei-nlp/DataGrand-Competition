@@ -71,7 +71,7 @@ tokenizer.fit_on_texts(train_set['word_seg'].values.tolist() +
 embedding_matrix = np.zeros((len(tokenizer.index_word) + 1, 200))
 for i, word in tokenizer.index_word.items():
     word_vector = w2c_model[word] if word in w2c_model else None
-    if word_vector:
+    if word_vector is not None:
         embedding_matrix[i] = word_vector
     else:
         unk_vec = np.random.random(200) * 0.5
