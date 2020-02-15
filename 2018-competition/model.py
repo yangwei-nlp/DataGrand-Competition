@@ -8,25 +8,26 @@ import numpy as np
 import swifter
 import os
 
+# https://www.dcjingsai.com/common/cmpt/%E2%80%9C%E8%BE%BE%E8%A7%82%E6%9D%AF%E2%80%9D%E6%96%87%E6%9C%AC%E6%99%BA%E8%83%BD%E5%A4%84%E7%90%86%E6%8C%91%E6%88%98%E8%B5%9B_%E7%BB%93%E6%9E%9C%E6%8F%90%E4%BA%A4.html
 # https://blog.csdn.net/m0_37306360/article/details/85030283
 
 # os.chdir(r'D:\..courses\DataGrand-Competition\2018-competition')
 
+os.environ['CUDA_VISIBLE_DEVICES'] = "1"  # 指定GPU
+
 modelpath = "word2vec.model"
 
-# 1.先计算所有词的词向量
+# 1.训练所有词的词向量
 if not os.path.exists(modelpath):
     train_set = pd.read_csv('data/train_set.csv', index_col=0)
+    # 注意不能在测试集训练，因为测试成绩是AB榜形式
     corpus = train_set['word_seg'].swifter.apply(lambda line: line.split())
 
-    w2c_model = Word2Vec(corpus.values.tolist(), size=200, window=5, min_count=1,
-                         iter=10, workers=cpu_count())
+    w2c_model = Word2Vec(corpus.values.tolist(), size=200, window=6, min_count=20,
+                         iter=30, workers=cpu_count())
     w2c_model.save(modelpath)
 else:
     w2c_model = Word2Vec.load(modelpath)
-
-
-# embedding_matrix = w2c_model.wv.vectors
 
 
 # 2.构建模型
@@ -62,11 +63,12 @@ def my_model(max_len, embedding_matrix):
 train_set = pd.read_csv('data/train_set.csv', index_col=0)
 test_set = pd.read_csv('data/test_set.csv', index_col=0)
 
-tokenizer = text.Tokenizer(num_words=500000, lower=False, filters="")
+train_set = train_set.dropna(axis=0, how='any')
+test_set = test_set.dropna(axis=0, how='any')
+
+tokenizer = text.Tokenizer(num_words=250000, lower=False, filters="")
 tokenizer.fit_on_texts(train_set['word_seg'].values.tolist() +
                        test_set['word_seg'].values.tolist())
-
-# print(len(tokenizer.index_word))
 
 embedding_matrix = np.zeros((len(tokenizer.index_word) + 1, 200))
 for i, word in tokenizer.index_word.items():
@@ -79,20 +81,18 @@ for i, word in tokenizer.index_word.items():
         embedding_matrix[i] = unk_vec
 
 trains = keras.preprocessing.sequence.pad_sequences(
-    tokenizer.texts_to_sequences(train_set['word_seg'].values), maxlen=512
+    tokenizer.texts_to_sequences(train_set['word_seg'].values), maxlen=256
 )
 
 tests = keras.preprocessing.sequence.pad_sequences(
-    tokenizer.texts_to_sequences(test_set['word_seg'].values), maxlen=512
+    tokenizer.texts_to_sequences(test_set['word_seg'].values), maxlen=256
 )
 
-trainings = tf.data.Dataset.from_tensor_slices((trains, train_set['class']-1))
-# trainings = trainings.repeat(10)
-trainings = trainings.batch(128)
+trainings = tf.data.Dataset.from_tensor_slices((trains, train_set['class'] - 1))
+trainings = trainings.batch(256)
 
-# for X, Y in trainings:
-#     print(X.shape)
-#     print(Y.shape)
+testings = tf.data.Dataset.from_tensor_slices((tests))
+testings = testings.batch(256)
 
 checkpoint_dir = "model/cp-{epoch:04d}.ckpt"
 callbacks = tf.keras.callbacks.ModelCheckpoint(checkpoint_dir,
@@ -100,6 +100,16 @@ callbacks = tf.keras.callbacks.ModelCheckpoint(checkpoint_dir,
                                                save_weights_only=True,
                                                period=10)
 
-model = my_model(512, embedding_matrix)
+model = my_model(256, embedding_matrix)
 
-model.fit(trainings, epochs=1, callbacks=[callbacks])
+if os.path.exists("model"):
+    latest = tf.train.latest_checkpoint("model")
+    model.load_weights(latest)
+    print('Model Checkpoint Loaded!!')
+
+if __name__ == "__main__":
+    model.fit(trainings, epochs=5, callbacks=[callbacks])
+
+else:
+    predictions = model.predict(testings)
+    np.argmax(predictions, axis=1)
