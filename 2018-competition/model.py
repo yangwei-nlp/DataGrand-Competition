@@ -13,7 +13,7 @@ import os
 
 # os.chdir(r'D:\..courses\DataGrand-Competition\2018-competition')
 
-os.environ['CUDA_VISIBLE_DEVICES'] = "1"  # 指定GPU
+os.environ['CUDA_VISIBLE_DEVICES'] = "0"  # 指定GPU
 
 modelpath = "word2vec.model"
 
@@ -97,7 +97,7 @@ testings = testings.batch(256)
 checkpoint_dir = "model/cp-{epoch:04d}.ckpt"
 callbacks = tf.keras.callbacks.ModelCheckpoint(checkpoint_dir,
                                                verbose=1,
-                                               save_weights_only=True,
+                                               save_weights_only=False,
                                                period=10)
 
 model = my_model(256, embedding_matrix)
@@ -106,9 +106,12 @@ if os.path.exists("model"):
     latest = tf.train.latest_checkpoint("model")
     model.load_weights(latest)
     print('Model Checkpoint Loaded!!')
+else:
+    model.save_weights(checkpoint_dir.format(epoch=0))
+
 
 if __name__ == "__main__":
-    model.fit(trainings, epochs=5, callbacks=[callbacks])
+    model.fit(trainings, epochs=4, callbacks=[callbacks])
 
 else:
     predictions = model.predict(testings)
